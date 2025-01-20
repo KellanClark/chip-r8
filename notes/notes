@@ -1,0 +1,224 @@
+Key:
++ = Pro
+~ = Unsure
+- = Con
+N: = Notes
+S: = Possible Solution
+
+Timings:
+GBA Speed is ~16 MHz, CHIP-8 speed is ~500 (rounding to 512), we have ~32k cycles to work with per unstruction
+Each linked list inc/dec takes 14 cycles (worst), 10 cycles (system default), 8 cycles (game default), or 7 cycles (ideal/emulator)
+Each nop, simple inc, or simple dec takes 3 cycles (best) or same as linked list (worst) depending on where the base register points
+A mov takes 2 words and 5 cycles
+A slow load takes 4 words and 8 cycles
+A load with a pointer to constant 0/1 takes 1 word and 3 cycles
+An execptr takes (11 + waitstates) cycles not counting the executed instruction
+An if/else takes 7 words and (16 + waitstates) cycles
+A ternary takes 9 words and (19 + waitstates) cycles
+
+Name ideas:
+CHIP-{r0-r8}
+CHIP,{r8}^
+CHIP{r8}
+CHIP{r8} ^^this 5 stars^^
+When you have a hammer, ~~everything looks like a nail~~ you can cause yourself a lot of blunt-force trauma.
+When you have a hammer, everything looks like a nail, and I just discovered the claw on the other side.
+Logic gates, lookup tables, and linked lists: <insert something here>
+
+Register Map:
+tmp registers are for scratchpad variables and trash space to add/subtract
+a,b,c are for logic gates
+d,e,f are for arguments and local variables (must be pushed to save)
+the stack is a normal stack for return addresses and moving values between registers
+r0  - tmp0/tmp
+r1  - tmp1
+r2  - tmp2
+r3  - tmp3
+r4  - tmp4
+r5  - tmp5
+r6  - tmp6
+r7  - tmp7
+r8  - a
+r9  - b
+r10 - c
+r11 - d
+r12 - e
+r13 - Stack pointer
+r14 - f
+r15 - PC
+
+Numbers:
+Current system expanded to 16 bits would be 65536 * 16 = 1MB and 256KB for each additional field
+Glyph field isn't needed unless I really want to optimize FX29
+Two approaches:
+Linked List - the current system.
+	+ great for increments/decrements
+	~ workable for adds/subtracts using methods from Brainfuck
+	~ an 8-bit addition can take <3k cycles
+	- a 12-bit addition can take ~30-40k cycles
+	- no way to do bitwise?
+		S: Each number has a pointer to its "binary" representation
+			+ I can work with whatever system is most convenient
+			+ ll->bin is basically instant
+			- how do I convert back? (bin->ll)
+				S: Very easy if the S bit OR trick works
+				S: Check bit by bit to add 128, 64, 32, etc.
+					~ Takes roughly as long as normal addition
+
+Turing Machine - Each bit gets its own word/bool. 4KB of memory is 4096 * 8 * 4 = 128KB. EWRAM is 256KB.
+	N: Bits will be stored in big endian order (MSB at lower address, LSB at higher address)
+	N: Pointers will point to LSB of number (highest address)
+	+ Great for bitwise operations. Instruction decoding done with binary tree - cant be pipelined (i should test this first)
+	+ Masking isn't needed for instruction fields, only moving pointers which is relatively cheap
+	- memory pointers like PC, SP, and I don't fit well into this model
+		N: I and PC need to be loaded from "binary" values and have binary values added to them
+		N: Masking to 12-bits isn't actually needed
+		S: Make SP a normal pointer
+			+ Both the fastest and simplest possible way this could be done
+			~ No bounds checking (wasn't an intended feature anyway)
+		S: Treat I and PC as pointers and sync them with their binary representation when needed
+			+ Binary to pointer can be done with a faster and more compact version of the bin->ll conversion above
+			- Is it even possible to convert pointer to binary?
+				S: Make PC pointer only?
+					N: PC is only used in CALL, RET, and BNNN (PC = V0 + NNN)
+					+ Adding and loading binary values is still trivial
+					+ Smaller and faster to access/use
+					+ The stack isn't visible anyway. There's nothing stopping me from pushing/poping the pointer value directly
+						+ Decreases the size and increases the speed of the stack too
+				S: Make I pointer only
+					N: I only needs to be loaded, modified, and used. Its binary value is never read.
+					+ See above PC advantages
+					+ Making I, PC, and SP pointer only removes the need for 12-bit addition, potentially saving 3KB of IWRAM
+	- Horrible for add/subtract
+		S: Reinvent logic gates with conditionals/ternary.
+			~ Each bit of adder takes 2*XOR + 2*AND + 1*OR = 2*38 + 2*13 + 1*24 = 126, we'll say more like 150
+				N: Needs to be <=300 to beat other method 8-bit
+				N: Needs to be <=3000 to beat other method 12-bit
+				+ WTF? Is this dumb shit actually faster than using real numbers?
+			- Every operation uses a lot of memory
+			- Everything needs to use either ternary or branch true/false
+				S: Make each bit hold both the branch and ternary versions of true/false
+					+ allows both methods to be used interchangably
+					+ 2 versions of `execptr` can be made to use one or the other with no cost
+					- Moving through memory takes twice as long
+					- Uses all of EWRAM for memory. No space for registers and variables
+						+ Mirroring means I can get very limited wrapping support like I did with Brainfuck
+						S: Move them to IWRAM
+							+ I imagine the interpreter won't be hurting for space
+							+ Faster
+							+ Might be a good idea even if I don't go this path
+				S: Choose one and inline convert when the other is needed
+					N: Branch* as ternary - Conversion takes 8 words and (19 + waitstates) cycles (constant pointer) or 15 words and (24 + waitstates) cycles (slow load).
+					N: Ternary* to branch - Conversion takes 9 words and (19 + waitstates) cycles
+					N: Ternary* as branch - Takes 11 words and (26 + waitstates) cycles
+					N: Branch is better for decoding; ternary is better for math
+				S: Combine branch and ternary versions into one single bool type
+					N: 9 words and (17 + waitstates) cycles
+					N: Either way, it should replace the current ternary method
+					+ Same size and 2 cycles faster than old ternary
+					+ 2 less words and 9 cycles faster than using ternary as branch
+					~ 1 more word and 2 cycles faster than using branch as ternary
+					- 2 more words and 1 cycle slower than old branch
+					N: Implementation
+						;if *ptr then
+						;  dat = op1v
+						;  goto op1a
+						;else
+						;  dat = op2v
+						;  goto op2a
+						;
+						;Where:
+						; true/Option 1 = ldmda r15, {dat, r15}
+						; false/Option 2 = ldmib r15, {dat, r15}
+						execptr
+						dw op1v ; Option 1 value
+						dw op1a ; Option 1 address
+						dw op2v ; Option 2 value
+						dw op2a ; Option 2 address
+
+Allowed Condition Codes:
+CPSR will be 0x0000001F throughout the execution of the ROM.
+0000
+0001 Y
+0010
+0011 Y
+0100
+0101 Y
+0110
+0111 Y
+1000
+1001 Y
+1010 Y
+1011
+1100 Y
+1101
+1110 Y
+1111 Y
+
+Input:
+KEYINPUT (0x4000130) as r-list
++ bits 0-9 map directly to registers 0-9
++ can load from an array of bools and chain ifs for each possible key
++ only 10 keys so no possibility of corrupting r13/r15
+- CHIP-8 has 16 buttons and the GBA only has 10
+	S: Map only commonly used keys to GBA equivalent (e.g. whatever most games use for arrow keys will go to the D-pad)
+	S: 8 keys usable at a time. Use one button as a sort of shift key to access the others
+	S: Selectable by user in loader script
+- Can only read/write 32 bits at a time and KEYCNT is in the way
+	S: KEYCNT (0x4000132) as high bits to create a LDM/STM
+		+ bits r/w
+		+ register has no effect since interrupts are disabled
+		- LDM/STM require bit 27 to be set. bit 11 is always 0
+			S: Add 0x0800'0000 to value after reading
+				- Requires 9-10MB of instructions at minimum and takes a long time
+			S: Start with 0xC000'0000 and subtract ~0x0700'0000
+				+ Only needs 8MB of instructions
+				- still way way too long
+			S: Abuse S bit to OR with 0x0800'0000 and other required bits. S bit ORs
+			S: Abuse I/O registers to set high bits (is it possible?)
+				S: IE/IF
+					- I need to trigger a keypad interrupt and a game pak interrupt somehow.
+				S: Wave RAM shift register
+					N: Write full KEYINPUT/KEYCNT value to high place, wait for it to shift 16 bits, write new value to make it a valid LDM/STM, wait for it to shift another 16 bits, read full value from 4 bytes lower
+					N: Theoretically this could be used to wait for vsync too
+
+Graphics:
+No good methods that let me use VRAM as the framebuffer
+Host screen is 240x160; guest screen is 64x32. Can cleanly scale to 3x
+Will use mode 5 (160x128 bitmap with 16-bit explicit color)
+Program will write either 0x0000'0000 or 0xFFFF'FFFF for each pixel. This draws 2 pixels to the screen
+To fix the stretching and to make the screen bigger, the affine matrix will be used to scale the X and Y
+Affine reference point can be used to center the screen
+Areas not covered by the chip8 screen can be disabled by the window
+
+Iffy strategies:
+S bit banked register abuse for bitwise OR
+	+ The most "legal" of these strategies
+	- I don't know how it works
+	- Only supported by one emulator (NBA)
+	- Apparently has different behavior on real GBA and 3DS
+Wave RAM shift register abuse to overwrite nibbles and read IO registers
+	- Not sure if using IO quirks is allowed, especially when they give this much power
+	- Probably isn't supported by most emulators
+Use undocumented register to put my own interrupt handlers in EWRAM so I can use vblank for timing
+	- Probably isn't supported by most emulators
+	- Doesn't exist on NDS; I'm going to assume it doesn't exist on 3DS either
+	- Not sure if interrupts are allowed
+
+
+
+12/16/2024 Update:
+It's been a while since I've worked on this project (last update was 7/29/2024; last change to this file was 7/10/2024). This file doesn't get used much anymore and parts of it are outdated/inaccurate, but I'll keep it because I think it's an interesting part of this project's history and my brain is swarming with thoughts I want to write down.
+* I should do some minor cleanup to the BF post. It has a few grammar errors and parts that could be more clear with minimal editing.
+* The logic gate library is completely abandoned. Again, I'll keep it for "history"
+* I don't mind having two macros for reading KEYINPUT (one normal, one inverted). I think it's still impossible because the keys you want to read and your register layout will be different every time
+* It took me way too long to realize nopl can be made a ldm/stm with one of the disallowed condition codes. I wasn't sure about this because it feels like it bends the rules (and spamming open bus writes is funny), but I already did it with the cursed input code and acknowleged the possibility in the bf post. There should always be 7 or 8 "nop" conditions no matter what platform.
+* I think I've decided that I want to hardcode the games into the rom and have a selector screen. As much as I wanted to play with batch misaligned SRAM reads and spam open bus, it will never be better than running a loader script.
+* There will be a loader script that takes a list of game files and puts their data into the end of rom. There will be a fixed location that has the number of roms and pointers to the beginning of each one
+* Header data can include the size of the game, keymap, and quirk flags
+* Each game will take a maximum of (4096-512)*8*4 = 114,688 bytes not counting the header
+* TODO: Find out if storing the game data directly (instead of my true/false bit encoding) is possible. Should be easy to change once I have something working
+* This method also works to seed the random number gernerator by waiting for user input
+* I think the selector and emulator setup should run in IWRAM but the emulator and rom loading code should be in ROM.
+* This means the quirk flags will be a series of "patch" words that are coppied to certain locations in memory after the emulator code is loaded
+* Because it's more efficient to insert instructions or modify addresses (as opposed to changing true/false variables that get checked), I should have one place that keeps track of all the quirks and their enable/disable values

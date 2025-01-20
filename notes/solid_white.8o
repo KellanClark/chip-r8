@@ -1,0 +1,62 @@
+: main
+	i := data
+
+	v0 := 0
+	v1 := 0
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	
+	v0 := 0
+	v1 := 15
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+	v0 += 8
+	sprite v0 v1 15
+
+	v0 := 0
+	v1 := 30
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+
+: inf
+	jump inf
+
+: data
+	0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF 0xFF

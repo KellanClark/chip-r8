@@ -1,0 +1,1 @@
+file "..\..\patterns\pride.bmp"

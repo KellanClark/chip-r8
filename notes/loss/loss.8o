@@ -1,0 +1,85 @@
+: main
+	i := long_bar
+	v0 := 0
+	v1 := 15
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	v0 += 8
+	sprite v0 v1 2
+	
+	i := tall_bar
+	v0 := 31
+	v1 := 0
+	sprite v0 v1 8
+	v1 += 8
+	sprite v0 v1 7
+	v1 += 9
+	sprite v0 v1 8
+	v1 += 8
+	sprite v0 v1 7
+	
+	i := loss_left
+	v0 := 3 
+	v1 := 2
+	sprite v0 v1 11
+	v1 += 17
+	sprite v0 v1 11
+	v0 += 14
+	sprite v0 v1 11
+	v0 += 19
+	sprite v0 v1 11
+	v1 -= 17
+	sprite v0 v1 11
+	v0 += 14
+	sprite v0 v1 11
+	i := loss_rotated_left
+	v1 += 17
+	sprite v0 v1 11
+	
+	i := loss_right
+	v0 := 11
+	v1 := 2
+	sprite v0 v1 10
+	v1 += 17
+	sprite v0 v1 10
+	v0 += 14
+	sprite v0 v1 10
+	v0 += 19
+	sprite v0 v1 10
+	v1 -= 17
+	sprite v0 v1 10
+	v0 += 14
+	sprite v0 v1 10
+	i := loss_rotated_right
+	v1 += 17
+	sprite v0 v1 10
+
+: end_loop
+	jump end_loop
+
+: long_bar
+	0xFF 0xFF
+
+: tall_bar
+	0xC0 0xC0 0xC0 0xC0 0xC0 0xC0 0xC0 0xC0
+
+: loss_left
+	0x04 0x45 0x45 0x45 0x04 0xFF 0x04 0x55 0x55 0x55 0x04
+: loss_right
+	0x00 0x40 0x40 0x40 0x00 0xE0 0x00 0x00 0x00 0x60
+
+: loss_rotated_left
+	0x04 0x75 0x04 0x74 0x04 0xFF 0x04 0x75 0x04 0x45 0x44
+: loss_rotated_right
+	0x00 0xC0 0x00 0x00 0x00 0xE0 0x00 0xC0 0x00 0xC0

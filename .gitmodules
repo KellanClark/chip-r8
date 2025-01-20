@@ -1,0 +1,3 @@
+[submodule "scripts/chip-8-database"]
+	path = scripts/chip-8-database
+	url = https://github.com/chip-8/chip-8-database.git

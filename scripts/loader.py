@@ -31,7 +31,7 @@ if len(args.games) > MAX_GAMES:
 	print('ERROR: Too many games provided (max ' + MAX_GAMES + ')')
 	exit()
 
-# Remove the old rom so everything fails if there's an assember error
+# Remove the old rom so everything fails if there's an assembler error
 if os.path.exists(args.outfile):
 	print('[ Removing Old ROM ]')
 	os.remove(args.outfile)
